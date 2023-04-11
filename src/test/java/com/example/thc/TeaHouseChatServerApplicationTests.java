@@ -12,10 +12,12 @@ import com.example.thc.mapper.HotArticleMapper;
 import com.example.thc.service.ArticleService;
 import com.example.thc.service.HotArticleService;
 import com.example.thc.service.UserService;
+import com.example.thc.util.OkHttp;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -31,6 +33,22 @@ class TeaHouseChatServerApplicationTests {
     @Autowired
     private HotArticleService hotArticleService;
 
+    @Test
+    void addContent(){
+        String arr = "123456";
+        System.out.println("字符串长度是："+arr.length());
+        System.out.println("截取123字符串"+arr.substring(0, 3));
+        System.out.println("截取456字符串"+arr.substring(3));
+    }
+    @Test
+    void addArticle() throws IOException {
+        OkHttp okHttp = new OkHttp();
+        String ok = okHttp.run("https://img.xjh.me/random_img.php?return=json");
+        JSONObject jsonObject = JSONObject.parseObject(ok);
+        String img = jsonObject.getString("img");
+        System.out.println(img.substring(2));
+        System.out.println(img);
+    }
     @Test
     void test() {
         LocalDate date = LocalDate.now();

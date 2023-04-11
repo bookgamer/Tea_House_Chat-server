@@ -22,6 +22,10 @@ public class Article {
     private String restBcontent;
 //    文章剩余内容 3
     private String restCcontent;
+//    文章点赞数
+    private Long likes;
 //    文章是否公开 0公开 1不公开
     private Long publics;
+//   文章对应的用户id
+    private Long userId;
 }

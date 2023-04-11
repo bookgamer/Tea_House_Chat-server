@@ -12,6 +12,4 @@ public class User {
     private String nickName;
     //    用户性别
     private Long gender;
-    //    用户文章唯一id
-    private Long articleId;
 }

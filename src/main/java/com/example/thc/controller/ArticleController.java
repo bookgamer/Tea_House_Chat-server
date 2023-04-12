@@ -4,17 +4,12 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.thc.common.R;
-import com.example.thc.entity.Article;
-import com.example.thc.entity.Comment;
-import com.example.thc.entity.Likes;
-import com.example.thc.entity.User;
-import com.example.thc.service.ArticleService;
-import com.example.thc.service.CommentService;
-import com.example.thc.service.LikesService;
-import com.example.thc.service.UserService;
+import com.example.thc.entity.*;
+import com.example.thc.service.*;
 import com.example.thc.util.OkHttp;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,6 +29,8 @@ public class ArticleController {
     @Autowired
     private CommentService commentService;
 
+    @Autowired
+    private CommentLikesService commentLikesService;
     @GetMapping("/article")
     public Article getArticle(@RequestParam("id") Long id) {
         // 根据文章id从文章数据中获取文章内容
@@ -117,8 +114,39 @@ public class ArticleController {
         return true;
     }
 
+    @Transactional
+    @PostMapping("/CommentLikes")
+    public boolean setCommentLikes(@RequestBody CommentLikes commentLikes){
+        LambdaQueryWrapper<CommentLikes> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(CommentLikes::getUserId,commentLikes.getUserId());
+        queryWrapper.eq(CommentLikes::getCommentId,commentLikes.getCommentId());
+        CommentLikes commentLikesServiceOne = commentLikesService.getOne(queryWrapper);
+        if(commentLikesServiceOne==null){
+            log.info("表示用户没有点赞评论，然后点赞评论数加一");
+//            首先将评论点赞数加一
+           LambdaQueryWrapper<Comment> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+           lambdaQueryWrapper.eq(Comment::getId,commentLikes.getCommentId());
+           Comment commentServiceOne = commentService.getOne(lambdaQueryWrapper);
+           commentServiceOne.setLikes(commentServiceOne.getLikes()+1);
+           commentService.update(commentServiceOne,lambdaQueryWrapper);
+//           然后将数据添加到评论点赞表中
+            commentLikesService.save(commentLikes);
+            return true;
+        }else{
+            log.info("表示用户点赞评论，然后点赞评论数减一");
+            //            首先将评论点赞数减一
+            LambdaQueryWrapper<Comment> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+            lambdaQueryWrapper.eq(Comment::getId,commentLikes.getCommentId());
+            Comment commentServiceOne = commentService.getOne(lambdaQueryWrapper);
+            commentServiceOne.setLikes(commentServiceOne.getLikes()==0?commentServiceOne.getLikes():commentServiceOne.getLikes()-1);
+            commentService.update(commentServiceOne,lambdaQueryWrapper);
+//           然后将数据从评论点赞表中删除
+            commentLikesService.remove(queryWrapper);
+            return false;
+        }
+    }
     @GetMapping("/comments")
-    public String getComments(@RequestParam("id") Long id) {
+    public String getComments(@RequestParam("id") Long id,@RequestParam("userId") Long userId) {
         LambdaQueryWrapper<Comment> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Comment::getArticleId, id);
         List<Comment> commentList = commentService.list(queryWrapper);
@@ -126,7 +154,7 @@ public class ArticleController {
         JSONArray jsonArray = new JSONArray();
         for (Comment comment : commentList) {
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("id", comment.getId());
+            jsonObject.put("id", comment.getId().toString());
             jsonObject.put("articleId", comment.getArticleId());
             jsonObject.put("avatarUrl", comment.getAvatarUrl());
             jsonObject.put("nickName", comment.getNickName());
@@ -134,13 +162,22 @@ public class ArticleController {
             jsonObject.put("time", comment.getTime());
             jsonObject.put("likes", comment.getLikes());
             jsonObject.put("replies", comment.getReplies());
+//            进行当前用户是否点赞了当前评论的判断，点赞设置true，不点赞设置false
+            LambdaQueryWrapper<CommentLikes> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+            lambdaQueryWrapper.eq(CommentLikes::getCommentId,comment.getId());
+            lambdaQueryWrapper.eq(CommentLikes::getUserId,userId);
+            CommentLikes commentLikesServiceOne = commentLikesService.getOne(lambdaQueryWrapper);
+            if(commentLikesServiceOne==null){
+                jsonObject.put("liked",false);
+            }else{
+                jsonObject.put("liked",true);
+            }
             // 其他属性同理
             jsonArray.add(jsonObject);
         }
 
         return jsonArray.toString();
     }
-
 //    查询点赞
     @GetMapping("/like")
     public boolean getlike(@RequestParam Long articleId,@RequestParam Long userId){
@@ -161,6 +198,7 @@ public class ArticleController {
         }
     }
 //    进行点赞
+    @Transactional
     @PostMapping("/like")
     public boolean setlike(@RequestBody Likes likes) {
         LambdaQueryWrapper<Likes> lambdaQueryWrapper = new LambdaQueryWrapper<>();

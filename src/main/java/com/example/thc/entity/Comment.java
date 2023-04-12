@@ -20,5 +20,4 @@ public class Comment {
     private Long likes;
 //    评论回复数
     private Long replies;
-
 }
